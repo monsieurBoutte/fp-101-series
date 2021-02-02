@@ -7,6 +7,9 @@
     "lint": "prettier --check \"src/**/*.{js,jsx,ts,tsx}\""
   },
   "dependencies": {
+    "@contactlab/appy": "^4.0.1",
+    "fp-ts": "^2.9.3",
+    "io-ts": "^2.2.13",
     "react": "^17.0.0",
     "react-dom": "^17.0.0"
   },
