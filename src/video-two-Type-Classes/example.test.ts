@@ -22,7 +22,7 @@ const johnDoe: UserProfile = {
 }
 
 const janeDoe: UserProfile = {
-  id: 6,
+  id: 7,
   account_balance: 60000,
   first_name: 'Jane',
   last_name: 'Doe',
@@ -30,6 +30,14 @@ const janeDoe: UserProfile = {
   favorite_quote:
     'Almost always, the creative dedicated minority has made the world better',
 }
+
+const quoteOpt = (userOpt: O.Option<UserProfile>) =>
+  pipe(
+    userOpt,
+    O.chain((x) => O.fromNullable(x.favorite_quote)),
+    O.map((x) => x.toLocaleUpperCase()),
+    O.map((x) => `'${x}' - MLK`),
+  )
 
 describe('Option', () => {
   it("can map values via it's Functor implementation", () => {
@@ -55,24 +63,15 @@ describe('Option', () => {
     const userJohnOpt = O.some(johnDoe)
     const userJaneOpt = O.some(janeDoe)
 
+    const expected =
+      "'ALMOST ALWAYS, THE CREATIVE DEDICATED MINORITY HAS MADE THE WORLD BETTER' - MLK"
+
     //#region Jane's assertion
-    // const janesOperation = pipe(
-    //   userJaneOpt,
-    //   O.chain((x) => O.fromNullable(x.favorite_quote)),
-    //   O.map((x) => x.toLocaleUpperCase()),
-    //   O.map((x) => `'${x}' - MLK`),
-    // )
-    // expect(janesOperation).to.be.eql(O.some('foo'))
+    expect(quoteOpt(userJaneOpt)).to.be.eql(O.some(expected))
     //#endregion
 
     //#region John's assertion
-    // const johnsOperation = pipe(
-    //   userJohnOpt,
-    //   O.chain((x) => O.fromNullable(x.favorite_quote)),
-    //   O.map((x) => x.toLocaleUpperCase()),
-    //   O.map((x) => `'${x}' - MLK`),
-    // )
-    // expect(johnsOperation).to.be.eql(O.some('foo'))
+    expect(quoteOpt(userJohnOpt)).to.be.eql(O.none)
     //#endregion
   })
 })
@@ -82,25 +81,38 @@ describe('Apply', () => {
     const userJohnOpt = O.some(johnDoe)
     const userJaneOpt = O.some(janeDoe)
 
-    //#region Applicative test
-    // const sequenceOptionStruct = Ap.sequenceS(O.Applicative)
+    const expected =
+      "'ALMOST ALWAYS, THE CREATIVE DEDICATED MINORITY HAS MADE THE WORLD BETTER' - MLK"
 
-    // const assertion = pipe(
-    //   sequenceOptionStruct({
-    //     johnsQuote: pipe(
-    //       userJohnOpt,
-    //       quoteOpt,
-    //       // O.getOrElse(() => 'default quote'),
-    //       // O.some,
-    //     ),
-    //     janesQuote: pipe(userJaneOpt, quoteOpt),
-    //   }),
-    // )
-    // expect(assertion).to.be.eql(O.some('foo'))
+    //#region Applicative test
+    const sequenceOptionStruct = Ap.sequenceS(O.Applicative)
+
+    const assertion = pipe(
+      sequenceOptionStruct({
+        johnsQuote: pipe(
+          userJohnOpt,
+          quoteOpt,
+          O.getOrElse(() => 'default quote'),
+          O.some,
+        ),
+        janesQuote: pipe(userJaneOpt, quoteOpt),
+      }),
+      (x) => x,
+      O.map((people) => ({
+        ...people,
+        johnsQuote: people.johnsQuote.toLocaleUpperCase(),
+      })),
+    )
+    expect(assertion).to.be.eql(
+      O.some({
+        janesQuote: expected,
+        johnsQuote: 'DEFAULT QUOTE',
+      }),
+    )
     //#endregion
   })
 
-  it.only('can handle parallel composition where the provided ADT supports it', () => {
+  it('can handle parallel composition where the provided ADT supports it', () => {
     const sequentialExample = Ap.sequenceT(T.ApplicativeSeq)(
       T.delay(100)(T.of(1)),
       T.delay(100)(T.of(2)),

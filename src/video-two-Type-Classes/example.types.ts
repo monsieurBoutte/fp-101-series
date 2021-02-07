@@ -54,6 +54,7 @@ interface Chain<F> extends Apply<F> {
   readonly chain: <A, B>(fa: HKT<F, A>, f: (a: A) => HKT<F, B>) => HKT<F, B>
   // basic example -> chain: (Foo<A>, (A => Foo<B>)) => Foo<B>
 }
+//#endregion
 
 //#region Applicative
 //#region Applicative Laws
@@ -67,3 +68,4 @@ interface Applicative<F> extends Apply<F> {
   readonly of: <A>(a: A) => HKT<F, A>
   // basic example -> of: A => Foo<A>
 }
+//#endregion
