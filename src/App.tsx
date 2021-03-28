@@ -1,6 +1,6 @@
 import React from 'react'
 import { ADTsComponent } from './video-one-ADTs/ADTsComponent'
-
+import { EitherFormValidation } from './video-three-either-form-validation'
 import './App.css'
 
 const App = () => {
@@ -8,7 +8,10 @@ const App = () => {
     <div className="App">
       <header className="App-header">
         {/* Video One - ADTs */}
-        <ADTsComponent />
+        {/* <ADTsComponent /> */}
+        {/* Video Two - doesn't have a component—only test */}
+        {/* Video Three - Either Form Validation */}
+        <EitherFormValidation />
       </header>
     </div>
   )

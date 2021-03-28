@@ -1,0 +1,49 @@
+.grid-container {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 3rem;
+}
+
+.input-label {
+  display: block;
+  font-size: 1rem;
+  line-height: 1.25rem;
+  color: rgb(0, 238, 255);
+}
+
+.input-field {
+  display: block;
+  width: 100%;
+  font-size: 1rem;
+  line-height: 1.25rem;
+  border: none;
+  border-radius: 0.375rem;
+  padding: 0.25rem 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.form-btn {
+  display: inline-flex;
+  align-items: center;
+  padding-left: 0.625rem;
+  padding-right: 0.625rem;
+  padding-top: 0.375rem;
+  padding-bottom: 0.375rem;
+  box-sizing: border-box;
+  border-color: transparent;
+  font-weight: 500;
+  font-size: medium;
+  border-radius: 0.25rem;
+  color: rgb(43, 43, 43);
+  background-color: rgb(20, 196, 235);
+  margin-top: 0.25rem;
+  cursor: pointer;
+}
+
+.validation-output {
+  border: 1px dashed rgb(0, 255, 179);
+  color: rgb(0, 255, 179);
+  border-radius: 0.25rem;
+  font-size: large;
+  padding: 0.5rem;
+}
