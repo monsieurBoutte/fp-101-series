@@ -41,7 +41,6 @@ export const EitherFormValidation = () => {
         validateInputField('email cannot be empty', emailOpt),
         validateInputField('password cannot be empty', pwOpt),
       ),
-      (x) => x,
       E.fold(
         (errs) => setValidationErrors(O.some(errs)),
         ([email, password]) => {
