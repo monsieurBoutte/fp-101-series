@@ -81,6 +81,31 @@ export const EitherFormValidation = () => {
       ),
     )
 
+  // accumulates
+  // const apS = Ap.apS(E.getApplicativeValidation(A.getMonoid<string>()))
+  // const doAccumulatedFormValidation = () =>
+  //   pipe(
+  //     E.Do,
+  //     E.bind('email', () =>
+  //       validateInputField('email cannot be empty', emailOpt),
+  //     ),
+  //     apS('password', validateInputField('password cannot be empty', pwOpt)),
+  //     E.fold(
+  //       (errs) => setValidationErrors(O.some(errs)),
+  //       ({ email, password }) => {
+  //         console.log(
+  //           `%c validatedform -> ${JSON.stringify(
+  //             { email, password },
+  //             null,
+  //             1,
+  //           )}`,
+  //           `background: #7f2bff; color: #fff; padding: 4px; border-radius: 2px;`,
+  //         )
+  //         setValidationErrors(O.none)
+  //       },
+  //     ),
+  //   )
+
   return (
     <div className="grid-container">
       <div>
@@ -121,7 +146,7 @@ export const EitherFormValidation = () => {
         <button
           type="button"
           className="form-btn"
-          onClick={() => doFormValidation()}
+          onClick={() => handleFormValidation()}
         >
           Submit
         </button>
