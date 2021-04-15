@@ -1300,10 +1300,10 @@ find-up@^4.0.0:
     locate-path "^5.0.0"
     path-exists "^4.0.0"
 
-fp-ts@2.10.0-rc.7:
-  version "2.10.0-rc.7"
-  resolved "https://registry.yarnpkg.com/fp-ts/-/fp-ts-2.10.0-rc.7.tgz#c9f9c626a0b5a0951f0844736b00c86d85868937"
-  integrity sha512-4Hs+CvBGiz88SAO97RVPvi+QFumQOLhaw8qqKSIF1pkMIz8xlnUnIdTe3K9yXJXlFDMvg9i9r2j5aLPeANtyFQ==
+fp-ts@^2.10.0:
+  version "2.10.0"
+  resolved "https://registry.yarnpkg.com/fp-ts/-/fp-ts-2.10.0.tgz#e8d54691061be6561d4fe6e5b4012eea2a66d274"
+  integrity sha512-FC2VYweD6QJ5qIKq2wGXRuTtMxIRrXqLlIhRDnxVisbmjEEENHPyf6vrQ9Tdj5Pha1o/SbdYBrfANpvaUxW0dg==
 
 fresh@~0.5.2:
   version "0.5.2"
