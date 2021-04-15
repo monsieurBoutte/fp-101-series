@@ -4,20 +4,19 @@ import * as D from 'io-ts/Decoder'
 import * as E from 'fp-ts/Either'
 import * as O from 'fp-ts/Option'
 import * as A from 'fp-ts/Array'
-import { pipe, tupled } from 'fp-ts/function'
+import { flow, pipe } from 'fp-ts/function'
 import type { NonEmptyArray } from 'fp-ts/lib/NonEmptyArray'
-import { sequenceT } from 'fp-ts/lib/Apply'
-import * as RA from 'fp-ts/ReadonlyArray'
 
 const LIST_ALL_PEOPLE_URL = 'https://swapi.dev/api/people'
 
 export function makeRequest<A>(
   url: string,
   decoder: D.Decoder<unknown, A>,
+  signal?: AbortSignal,
 ): TE.TaskEither<Error, A> {
   return TE.tryCatch(
     async () => {
-      const response = await fetch(url)
+      const response = await fetch(url, { signal })
       const result = await response.json()
       const decoded = decoder.decode(result)
 
@@ -46,7 +45,24 @@ export function useTaskEither<E, A>() {
     task().then((either) => pipe(either, O.some, setValue))
   }, [])
 
-  return [value, isLoading, run] as const
+  const match = React.useCallback(
+    <B, C, D, F>(
+      onNone: () => B,
+      onLoading: () => C,
+      onError: (error: E) => D,
+      onSuccess: (value: A) => F,
+    ) =>
+      pipe(
+        value,
+        O.matchW(
+          () => (isLoading ? onLoading() : onNone()),
+          E.matchW(onError, onSuccess),
+        ),
+      ),
+    [],
+  )
+
+  return [match, run] as const
 }
 
 const filmDecoder = D.type({
@@ -100,14 +116,15 @@ function starwarsPayload<A>(
   })
 }
 
-const PersonPayloadDecoder = starwarsPayload(
+const peoplePayloadDecoder = starwarsPayload(
   pipe(D.array(peopleDecoder), D.refine(A.isNonEmpty, 'NonEmptyArray')),
 )
-type PersonPayload = D.TypeOf<typeof PersonPayloadDecoder>
+type PersonPayload = D.TypeOf<typeof peoplePayloadDecoder>
 
 const FilmPayloadDecoder = starwarsPayload(filmDecoder)
 type FilmPayload = D.TypeOf<typeof FilmPayloadDecoder>
 
+const renderNone = () => null
 const renderError = (error: Error) => <section>{error.message}</section>
 
 const renderLoading = () => <span>Loading...</span>
@@ -118,46 +135,95 @@ function randomItem<A>(array: NonEmptyArray<A>): A {
   return array[index]
 }
 
-export const TaskEitherExample = () => {
-  const [person, personIsLoading, runPersonRequest] = useTaskEither<
-    Error,
-    { person: Person; films: Array<Film> }
-  >()
+type TaskEitherExampleProps = {}
 
-  console.log(person, personIsLoading)
+export const TaskEitherExample = ({}: TaskEitherExampleProps) => {
+  // Create state to help manage TaskEither lifecycle
+  const [matchPeople, getPeople] = useTaskEither<Error, Array<Person>>()
+  const [person, setPerson] = React.useState<O.Option<Person>>(O.none)
 
-  React.useEffect(
-    () =>
-      pipe(
-        TE.Do,
-        TE.bind('person', () =>
-          pipe(
-            makeRequest(LIST_ALL_PEOPLE_URL, PersonPayloadDecoder),
-            TE.map((r) => randomItem(r.results)),
-          ),
-        ),
-        TE.bind('films', ({ person }) =>
-          TE.sequenceArray(
-            pipe(
-              person.films,
-              A.map((filmUrl) => makeRequest(filmUrl, filmDecoder)),
-            ),
-          ),
-        ),
-        runPersonRequest,
-      ),
-    [],
+  React.useEffect(() =>
+    pipe(
+      makeRequest(LIST_ALL_PEOPLE_URL, peoplePayloadDecoder),
+      TE.map((r) => r.results),
+      getPeople,
+    ),
   )
 
   return (
-    <div>
-      {pipe(
-        person,
-        O.match(
-          renderLoading,
-          E.match(renderError, ({ films }) => <li>{films[0].title}</li>),
+    <section>
+      {matchPeople(renderNone, renderLoading, renderLoading, (people) =>
+        pipe(
+          person,
+          O.match(
+            () => (
+              <PersonGrid
+                people={people}
+                selectPerson={flow(O.some, setPerson)}
+              />
+            ),
+            (person) => <PersonView person={person} />,
+          ),
         ),
       )}
-    </div>
+    </section>
+  )
+}
+
+type PersonGridProps = {
+  people: Array<Person>
+  selectPerson: (person: Person) => void
+}
+
+const PersonGrid = (props: PersonGridProps) => <div></div>
+
+type PersonProps = {
+  readonly person: Person
+}
+
+type PersonData = {
+  readonly films: ReadonlyArray<Film>
+}
+
+const PersonView = ({ person }: PersonProps) => {
+  // Create a place to
+  const [matchData, getData] = useTaskEither<Error, PersonData>()
+
+  React.useEffect(() => {
+    const controller = new AbortController()
+
+    pipe(
+      TE.Do,
+      TE.apS(
+        'films',
+        pipe(
+          person.films,
+          A.map((filmUrl) =>
+            makeRequest(filmUrl, filmDecoder, controller.signal),
+          ),
+          TE.sequenceArray,
+        ),
+      ),
+      getData,
+    )
+
+    return () => controller.abort()
+  }, [person])
+
+  return (
+    <section>
+      {matchData(
+        () => null,
+        renderLoading,
+        renderError,
+        ({ films }) => (
+          <ul>
+            {films.map((film) => (
+              <li>{film.title}</li>
+            ))}
+          </ul>
+        ),
+      )}
+    </section>
   )
 }
