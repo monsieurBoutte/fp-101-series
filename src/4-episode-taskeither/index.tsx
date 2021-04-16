@@ -277,16 +277,6 @@ function useTaskEither<E, A>(timeToLoad: number) {
 const filmDecoder = D.struct({
   title: D.string,
   episode_id: D.number,
-  opening_crawl: D.string,
-  director: D.string,
-  producer: D.string,
-  release_date: D.string,
-  planets: D.array(D.string),
-  characters: D.array(D.string),
-  species: D.array(D.string),
-  vehicles: D.array(D.string),
-  created: D.string,
-  edited: D.string,
   url: D.string,
 })
 
@@ -294,15 +284,6 @@ type Film = D.TypeOf<typeof filmDecoder>
 
 const peopleDecoder = D.struct({
   name: D.string,
-  height: D.nullable(D.string),
-  gender: D.nullable(D.string),
-  homeworld: D.string,
-  species: D.array(D.string),
-  vehicles: D.array(D.string),
-  hair_color: D.nullable(D.string),
-  skin_color: D.nullable(D.string),
-  eye_color: D.nullable(D.string),
-  birth_year: D.nullable(D.string),
   films: D.array(D.string),
 })
 
@@ -314,15 +295,11 @@ function starwarsPayload<A>(
   unknown,
   {
     count: number
-    next: string | null
-    previous: string | null
     results: A
   }
 > {
   return D.struct({
     count: D.number,
-    next: D.nullable(D.string),
-    previous: D.nullable(D.string),
     results: decoder,
   })
 }
