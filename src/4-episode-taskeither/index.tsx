@@ -11,10 +11,7 @@ const PERSON_COUNT = 10
 
 export const TaskEitherExample = () => {
   // Create state to help manage TaskEither lifecycle
-  const [matchPeople, getPeople, clearPeople] = useTaskEither<
-    Error,
-    PeoplePayload
-  >(600)
+  const [matchPeople, getPeople] = useTaskEither<Error, PeoplePayload>(600)
   const [person, setPerson] = React.useState<O.Option<Person>>(O.none)
   const [page, setPage] = React.useState(1)
   const back = React.useCallback(() => setPage((x) => Math.max(x - 1, 1)), [])
@@ -24,24 +21,19 @@ export const TaskEitherExample = () => {
   )
 
   React.useEffect(
-    () =>
-      pipe(
-        TE.fromIO<Error, void>(clearPeople),
-        TE.chain(() =>
-          makeRequest(createPeopleUrl(page), peoplePayloadDecoder),
-        ),
-        getPeople,
-      ),
+    () => getPeople(makeRequest(createPeopleUrl(page), peoplePayloadDecoder)),
     [page],
   )
 
   return (
-    <section>
+    <section style={{ display: 'flex', flexDirection: 'column', flexGrow: 1 }}>
+      <h1>Star Wars Characters</h1>
+
       {matchPeople(
         renderNone,
         renderLoading,
         renderError,
-        ({ count, results: people }) =>
+        ({ count, results: people }, isLoading) =>
           pipe(
             person,
             O.match(
@@ -51,12 +43,30 @@ export const TaskEitherExample = () => {
 
                 return (
                   <>
-                    <PersonList
-                      people={people}
-                      selectPerson={flow(O.some, setPerson)}
-                    />
+                    <section
+                      style={{
+                        display: 'flex',
+                        flexGrow: 1,
+                        alignItems: 'center',
+                      }}
+                    >
+                      {isLoading ? (
+                        renderLoading()
+                      ) : (
+                        <PersonList
+                          people={people}
+                          selectPerson={flow(O.some, setPerson)}
+                        />
+                      )}
+                    </section>
 
-                    <footer>
+                    <footer
+                      style={{
+                        justifySelf: 'flex-end',
+                        flexShrink: 1,
+                        paddingBottom: '2rem',
+                      }}
+                    >
                       <p>
                         Showing {start}-{end} of {count}
                       </p>
@@ -110,11 +120,9 @@ type PersonListProps = {
  */
 const PersonList = ({ people, selectPerson }: PersonListProps) => (
   <>
-    <h1>Star Wars Characters</h1>
-
     <ul>
       {people.map((person) => (
-        <li>
+        <li style={{ cursor: 'pointer' }}>
           <PersonName
             key={person.name}
             person={person}
@@ -229,9 +237,10 @@ function useTaskEither<E, A>(timeToLoad: number) {
     const start = performance.now()
 
     const task = pipe(
-      TE.fromTask<E, void>(async () => setIsLoading(true)),
+      TE.fromIO<E, void>(() => setIsLoading(true)),
       TE.chain(() => te),
       TE.chainFirstTaskK(() => () =>
+        // Simulate a given amount of time to load
         new Promise((resolve) =>
           setTimeout(resolve, timeToLoad - (performance.now() - start)),
         ),
@@ -246,22 +255,23 @@ function useTaskEither<E, A>(timeToLoad: number) {
     <B, C, D, F>(
       onNone: () => B,
       onLoading: () => C,
-      onError: (error: E) => D,
-      onSuccess: (value: A) => F,
+      onError: (error: E, isLoading: boolean) => D,
+      onSuccess: (value: A, isLoading: boolean) => F,
     ) =>
       pipe(
         value,
         O.matchW(
           () => (isLoading ? onLoading() : onNone()),
-          E.matchW(onError, onSuccess),
+          E.matchW(
+            (e) => onError(e, isLoading),
+            (a) => onSuccess(a, isLoading),
+          ),
         ),
       ),
     [value, isLoading],
   )
 
-  const clear = React.useCallback(() => setValue(O.none), [])
-
-  return [match, run, clear] as const
+  return [match, run] as const
 }
 
 const filmDecoder = D.struct({
