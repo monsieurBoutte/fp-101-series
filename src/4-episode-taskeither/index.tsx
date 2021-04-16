@@ -7,46 +7,97 @@ import * as A from 'fp-ts/Array'
 import { flow, pipe } from 'fp-ts/function'
 
 const LIST_ALL_PEOPLE_URL = 'https://swapi.dev/api/people'
+const PERSON_COUNT = 10
 
 export const TaskEitherExample = () => {
   // Create state to help manage TaskEither lifecycle
-  const [matchPeople, getPeople] = useTaskEither<Error, Array<Person>>(600)
+  const [matchPeople, getPeople, clearPeople] = useTaskEither<
+    Error,
+    PeoplePayload
+  >(600)
   const [person, setPerson] = React.useState<O.Option<Person>>(O.none)
+  const [page, setPage] = React.useState(1)
+  const back = React.useCallback(() => setPage((x) => Math.max(x - 1, 1)), [])
+  const forward = React.useCallback(
+    () => setPage((x) => Math.max(x + 1, 0)),
+    [],
+  )
 
   React.useEffect(
     () =>
       pipe(
-        makeRequest(LIST_ALL_PEOPLE_URL, peoplePayloadDecoder),
-        TE.map((r) => r.results),
+        TE.fromIO<Error, void>(clearPeople),
+        TE.chain(() =>
+          makeRequest(createPeopleUrl(page), peoplePayloadDecoder),
+        ),
         getPeople,
       ),
-    [],
+    [page],
   )
 
   return (
     <section>
-      {matchPeople(renderNone, renderLoading, renderError, (people) =>
-        pipe(
-          person,
-          O.match(
-            () => (
-              <PersonList
-                people={people}
-                selectPerson={flow(O.some, setPerson)}
-              />
-            ),
-            (person) => (
-              <PersonView
-                key={person.name}
-                person={person}
-                goBack={() => setPerson(O.none)}
-              />
+      {matchPeople(
+        renderNone,
+        renderLoading,
+        renderError,
+        ({ count, results: people }) =>
+          pipe(
+            person,
+            O.match(
+              () => {
+                const start = Math.min(page * PERSON_COUNT, count)
+                const end = Math.min(page * PERSON_COUNT + people.length, count)
+
+                return (
+                  <>
+                    <PersonList
+                      people={people}
+                      selectPerson={flow(O.some, setPerson)}
+                    />
+
+                    <footer>
+                      <p>
+                        Showing {start}-{end} of {count}
+                      </p>
+
+                      <div
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                        }}
+                      >
+                        <button disabled={page === 1} onClick={back}>
+                          Back
+                        </button>
+                        <button disabled={end === count} onClick={forward}>
+                          Forward
+                        </button>
+                      </div>
+                    </footer>
+                  </>
+                )
+              },
+              (person) => (
+                <PersonView
+                  key={person.name}
+                  person={person}
+                  goBack={() => setPerson(O.none)}
+                />
+              ),
             ),
           ),
-        ),
       )}
     </section>
   )
+}
+
+const createPeopleUrl = (page: number) => {
+  const url = new URL(LIST_ALL_PEOPLE_URL)
+
+  url.searchParams.set('page', page.toString())
+
+  return url.toString()
 }
 
 type PersonListProps = {
@@ -208,7 +259,9 @@ function useTaskEither<E, A>(timeToLoad: number) {
     [value, isLoading],
   )
 
-  return [match, run] as const
+  const clear = React.useCallback(() => setValue(O.none), [])
+
+  return [match, run, clear] as const
 }
 
 const filmDecoder = D.struct({
@@ -267,3 +320,5 @@ function starwarsPayload<A>(
 const peoplePayloadDecoder = starwarsPayload(
   pipe(D.array(peopleDecoder), D.refine(A.isNonEmpty, 'NonEmptyArray')),
 )
+
+export type PeoplePayload = D.TypeOf<typeof peoplePayloadDecoder>
