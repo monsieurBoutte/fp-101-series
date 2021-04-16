@@ -5,69 +5,8 @@ import * as E from 'fp-ts/Either'
 import * as O from 'fp-ts/Option'
 import * as A from 'fp-ts/Array'
 import { flow, pipe } from 'fp-ts/function'
-import { readonly } from 'io-ts'
 
 const LIST_ALL_PEOPLE_URL = 'https://swapi.dev/api/people'
-
-const filmDecoder = D.struct({
-  title: D.string,
-  episode_id: D.number,
-  opening_crawl: D.string,
-  director: D.string,
-  producer: D.string,
-  release_date: D.string,
-  planets: D.array(D.string),
-  characters: D.array(D.string),
-  species: D.array(D.string),
-  vehicles: D.array(D.string),
-  created: D.string,
-  edited: D.string,
-  url: D.string,
-})
-type Film = D.TypeOf<typeof filmDecoder>
-
-const peopleDecoder = D.struct({
-  name: D.string,
-  height: D.nullable(D.string),
-  gender: D.nullable(D.string),
-  homeworld: D.string,
-  species: D.array(D.string),
-  vehicles: D.array(D.string),
-  hair_color: D.nullable(D.string),
-  skin_color: D.nullable(D.string),
-  eye_color: D.nullable(D.string),
-  birth_year: D.nullable(D.string),
-  films: D.array(D.string),
-})
-type Person = D.TypeOf<typeof peopleDecoder>
-
-function starwarsPayload<A>(
-  decoder: D.Decoder<unknown, A>,
-): D.Decoder<
-  unknown,
-  {
-    count: number
-    next: string | null
-    previous: string | null
-    results: A
-  }
-> {
-  return D.struct({
-    count: D.number,
-    next: D.nullable(D.string),
-    previous: D.nullable(D.string),
-    results: decoder,
-  })
-}
-
-const peoplePayloadDecoder = starwarsPayload(
-  pipe(D.array(peopleDecoder), D.refine(A.isNonEmpty, 'NonEmptyArray')),
-)
-
-const renderNone = () => null
-const renderError = (error: Error) => <section>{error.message}</section>
-
-const renderLoading = () => <p>Loading...</p>
 
 export const TaskEitherExample = () => {
   // Create state to help manage TaskEither lifecycle
@@ -115,8 +54,11 @@ type PersonListProps = {
   selectPerson: (person: Person) => void
 }
 
+/**
+ * A list of people
+ */
 const PersonList = ({ people, selectPerson }: PersonListProps) => (
-  <section>
+  <>
     <h1>Star Wars Characters</h1>
 
     <ul>
@@ -130,7 +72,7 @@ const PersonList = ({ people, selectPerson }: PersonListProps) => (
         </li>
       ))}
     </ul>
-  </section>
+  </>
 )
 
 type PersonNameProps = {
@@ -150,25 +92,17 @@ const PersonName = ({ person, onClick }: PersonNameProps) => (
  */
 const PersonView = ({ person, goBack }: PersonViewProps) => {
   // Create a place to track a person's films
-  const [matchData, getData] = useTaskEither<Error, PersonData>(600)
+  const [matchFilms, getFilms] = useTaskEither<Error, ReadonlyArray<Film>>(600)
 
   React.useEffect(() => {
     // Give the ability to cancel our requests
     const controller = new AbortController()
 
     pipe(
-      TE.Do,
-      TE.apS(
-        'films',
-        pipe(
-          person.films,
-          A.map((filmUrl) =>
-            makeRequest(filmUrl, filmDecoder, controller.signal),
-          ),
-          TE.sequenceArray,
-        ),
-      ),
-      getData,
+      person.films,
+      A.map((filmUrl) => makeRequest(filmUrl, filmDecoder, controller.signal)),
+      TE.sequenceArray,
+      getFilms,
     )
 
     // When person changes we will cancel the previous requests
@@ -176,7 +110,7 @@ const PersonView = ({ person, goBack }: PersonViewProps) => {
   }, [person])
 
   return (
-    <section>
+    <>
       <div style={{ display: 'flex', alignItems: 'center' }}>
         <button style={{ marginRight: '1rem' }} onClick={goBack}>
           {'<-'}
@@ -184,14 +118,14 @@ const PersonView = ({ person, goBack }: PersonViewProps) => {
         <h2>{person.name}</h2>
       </div>
 
-      {matchData(renderNone, renderLoading, renderError, ({ films }) => (
+      {matchFilms(renderNone, renderLoading, renderError, (films) => (
         <ul>
           {films.map((film) => (
             <li key={film.episode_id}>{film.title}</li>
           ))}
         </ul>
       ))}
-    </section>
+    </>
   )
 }
 
@@ -200,16 +134,17 @@ type PersonViewProps = {
   readonly goBack: () => void
 }
 
-type PersonData = {
-  readonly films: ReadonlyArray<Film>
-}
+// Really basic rendering helpers
+const renderNone = () => null
+const renderError = (error: Error) => <section>{error.message}</section>
+const renderLoading = () => <p>Loading...</p>
 
 /**
  * Constructs a TaskEither that is capable of making a GET request that
  * will use the provided Decoder to validate the current type. Optionally
  * and AbortSignal can be passed along to support cancelation of the fetch request.
  */
-export function makeRequest<A>(
+function makeRequest<A>(
   url: string,
   decoder: D.Decoder<unknown, A>,
   signal?: AbortSignal,
@@ -236,7 +171,7 @@ export function makeRequest<A>(
  * the ability to pattern match over all of its states. Using the given timeToLoad
  * we can ensure that the user is able to see the process of loading ocurring.
  */
-export function useTaskEither<E, A>(timeToLoad: number) {
+function useTaskEither<E, A>(timeToLoad: number) {
   const [value, setValue] = React.useState<Option<Either<E, A>>>(O.none)
   const [isLoading, setIsLoading] = React.useState<boolean>(false)
   const run = React.useCallback((te: TE.TaskEither<E, A>) => {
@@ -275,3 +210,60 @@ export function useTaskEither<E, A>(timeToLoad: number) {
 
   return [match, run] as const
 }
+
+const filmDecoder = D.struct({
+  title: D.string,
+  episode_id: D.number,
+  opening_crawl: D.string,
+  director: D.string,
+  producer: D.string,
+  release_date: D.string,
+  planets: D.array(D.string),
+  characters: D.array(D.string),
+  species: D.array(D.string),
+  vehicles: D.array(D.string),
+  created: D.string,
+  edited: D.string,
+  url: D.string,
+})
+
+type Film = D.TypeOf<typeof filmDecoder>
+
+const peopleDecoder = D.struct({
+  name: D.string,
+  height: D.nullable(D.string),
+  gender: D.nullable(D.string),
+  homeworld: D.string,
+  species: D.array(D.string),
+  vehicles: D.array(D.string),
+  hair_color: D.nullable(D.string),
+  skin_color: D.nullable(D.string),
+  eye_color: D.nullable(D.string),
+  birth_year: D.nullable(D.string),
+  films: D.array(D.string),
+})
+
+type Person = D.TypeOf<typeof peopleDecoder>
+
+function starwarsPayload<A>(
+  decoder: D.Decoder<unknown, A>,
+): D.Decoder<
+  unknown,
+  {
+    count: number
+    next: string | null
+    previous: string | null
+    results: A
+  }
+> {
+  return D.struct({
+    count: D.number,
+    next: D.nullable(D.string),
+    previous: D.nullable(D.string),
+    results: decoder,
+  })
+}
+
+const peoplePayloadDecoder = starwarsPayload(
+  pipe(D.array(peopleDecoder), D.refine(A.isNonEmpty, 'NonEmptyArray')),
+)
