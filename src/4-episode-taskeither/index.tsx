@@ -289,23 +289,12 @@ const peopleDecoder = D.struct({
 
 type Person = D.TypeOf<typeof peopleDecoder>
 
-function starwarsPayload<A>(
-  decoder: D.Decoder<unknown, A>,
-): D.Decoder<
-  unknown,
-  {
-    count: number
-    results: A
-  }
-> {
-  return D.struct({
-    count: D.number,
-    results: decoder,
-  })
-}
-
-const peoplePayloadDecoder = starwarsPayload(
-  pipe(D.array(peopleDecoder), D.refine(A.isNonEmpty, 'NonEmptyArray')),
-)
+const peoplePayloadDecoder = D.struct({
+  count: D.number,
+  results: pipe(
+    D.array(peopleDecoder),
+    D.refine(A.isNonEmpty, 'NonEmptyArray'),
+  ),
+})
 
 export type PeoplePayload = D.TypeOf<typeof peoplePayloadDecoder>
