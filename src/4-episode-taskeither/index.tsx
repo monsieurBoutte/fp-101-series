@@ -5,21 +5,31 @@ import * as E from 'fp-ts/Either'
 import * as O from 'fp-ts/Option'
 import * as A from 'fp-ts/Array'
 import { flow, pipe } from 'fp-ts/function'
+import type { Task } from 'fp-ts/lib/Task'
 
 const LIST_ALL_PEOPLE_URL = 'https://swapi.dev/api/people'
 const PERSON_COUNT = 10
 
+/**
+ * TaskEither example using fetch requests and the Star Wars API. It requests
+ * 10 people at a time allowing for you to paginate through all 82 people.
+ */
 export const TaskEitherExample = () => {
   // Create state to help manage TaskEither lifecycle
   const [matchPeople, getPeople] = useTaskEither<Error, PeoplePayload>(600)
+  // Track the currently selected person
   const [person, setPerson] = React.useState<O.Option<Person>>(O.none)
+  // Track the current page for pagination
   const [page, setPage] = React.useState(1)
+  // Go back, but no less than 1
   const back = React.useCallback(() => setPage((x) => Math.max(x - 1, 1)), [])
+  // Go forwards
   const forward = React.useCallback(
     () => setPage((x) => Math.max(x + 1, 0)),
     [],
   )
 
+  // Request for people given the page that we are currently on
   React.useEffect(
     () => getPeople(makeRequest(createPeopleUrl(page), peoplePayloadDecoder)),
     [page],
@@ -38,8 +48,9 @@ export const TaskEitherExample = () => {
             person,
             O.match(
               () => {
+                // Determine the range of values
                 const start = Math.min(page * PERSON_COUNT, count)
-                const end = Math.min(page * PERSON_COUNT + people.length, count)
+                const end = Math.min(start + people.length, count)
 
                 return (
                   <>
@@ -102,6 +113,7 @@ export const TaskEitherExample = () => {
   )
 }
 
+// Create a paginated people's URL
 const createPeopleUrl = (page: number) => {
   const url = new URL(LIST_ALL_PEOPLE_URL)
 
@@ -237,20 +249,21 @@ function useTaskEither<E, A>(timeToLoad: number) {
     const start = performance.now()
 
     const task = pipe(
+      // Set Loading to true
       TE.fromIO<E, void>(() => setIsLoading(true)),
+      // Run the provided TaskEither
       TE.chain(() => te),
-      TE.chainFirstTaskK(() => () =>
-        // Simulate a given amount of time to load
-        new Promise((resolve) =>
-          setTimeout(resolve, timeToLoad - (performance.now() - start)),
-        ),
-      ),
+      // Simulate a longer load time if required for user experience
+      TE.chainFirstTaskK(() => delay(timeToLoad - (performance.now() - start))),
+      // Set loading back to false
       TE.chainFirst(() => TE.fromIO(() => setIsLoading(false))),
     )
 
+    // Run our task and then update our value with the Either
     task().then((either) => pipe(either, O.some, setValue))
   }, [])
 
+  // Pattern match over all possible states
   const match = React.useCallback(
     <B, C, D, F>(
       onNone: () => B,
@@ -273,6 +286,9 @@ function useTaskEither<E, A>(timeToLoad: number) {
 
   return [match, run] as const
 }
+
+const delay = (ms: number): Task<void> => () =>
+  new Promise((resolve) => setTimeout(resolve, ms))
 
 const filmDecoder = D.struct({
   title: D.string,
