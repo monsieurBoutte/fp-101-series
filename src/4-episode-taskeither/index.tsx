@@ -5,67 +5,11 @@ import * as E from 'fp-ts/Either'
 import * as O from 'fp-ts/Option'
 import * as A from 'fp-ts/Array'
 import { flow, pipe } from 'fp-ts/function'
-import type { NonEmptyArray } from 'fp-ts/lib/NonEmptyArray'
+import { readonly } from 'io-ts'
 
 const LIST_ALL_PEOPLE_URL = 'https://swapi.dev/api/people'
 
-export function makeRequest<A>(
-  url: string,
-  decoder: D.Decoder<unknown, A>,
-  signal?: AbortSignal,
-): TE.TaskEither<Error, A> {
-  return TE.tryCatch(
-    async () => {
-      const response = await fetch(url, { signal })
-      const result = await response.json()
-      const decoded = decoder.decode(result)
-
-      if (E.isLeft(decoded)) {
-        throw new TypeError(D.draw(decoded.left))
-      }
-
-      return decoded.right
-    },
-    (error): Error =>
-      error instanceof Error ? error : new Error(JSON.stringify(error)),
-  )
-}
-
-export function useTaskEither<E, A>() {
-  const [value, setValue] = React.useState<Option<Either<E, A>>>(O.none)
-  const [isLoading, setIsLoading] = React.useState<boolean>(false)
-  const run = React.useCallback((te: TE.TaskEither<E, A>) => {
-    setIsLoading(true)
-
-    const task = pipe(
-      te,
-      TE.chainFirst(() => TE.fromIO(() => setIsLoading(false))),
-    )
-
-    task().then((either) => pipe(either, O.some, setValue))
-  }, [])
-
-  const match = React.useCallback(
-    <B, C, D, F>(
-      onNone: () => B,
-      onLoading: () => C,
-      onError: (error: E) => D,
-      onSuccess: (value: A) => F,
-    ) =>
-      pipe(
-        value,
-        O.matchW(
-          () => (isLoading ? onLoading() : onNone()),
-          E.matchW(onError, onSuccess),
-        ),
-      ),
-    [],
-  )
-
-  return [match, run] as const
-}
-
-const filmDecoder = D.type({
+const filmDecoder = D.struct({
   title: D.string,
   episode_id: D.number,
   opening_crawl: D.string,
@@ -82,7 +26,7 @@ const filmDecoder = D.type({
 })
 type Film = D.TypeOf<typeof filmDecoder>
 
-const peopleDecoder = D.type({
+const peopleDecoder = D.struct({
   name: D.string,
   height: D.nullable(D.string),
   gender: D.nullable(D.string),
@@ -108,7 +52,7 @@ function starwarsPayload<A>(
     results: A
   }
 > {
-  return D.type({
+  return D.struct({
     count: D.number,
     next: D.nullable(D.string),
     previous: D.nullable(D.string),
@@ -119,50 +63,46 @@ function starwarsPayload<A>(
 const peoplePayloadDecoder = starwarsPayload(
   pipe(D.array(peopleDecoder), D.refine(A.isNonEmpty, 'NonEmptyArray')),
 )
-type PersonPayload = D.TypeOf<typeof peoplePayloadDecoder>
-
-const FilmPayloadDecoder = starwarsPayload(filmDecoder)
-type FilmPayload = D.TypeOf<typeof FilmPayloadDecoder>
 
 const renderNone = () => null
 const renderError = (error: Error) => <section>{error.message}</section>
 
-const renderLoading = () => <span>Loading...</span>
+const renderLoading = () => <p>Loading...</p>
 
-function randomItem<A>(array: NonEmptyArray<A>): A {
-  const index = Math.floor(length * Math.random())
-
-  return array[index]
-}
-
-type TaskEitherExampleProps = {}
-
-export const TaskEitherExample = ({}: TaskEitherExampleProps) => {
+export const TaskEitherExample = () => {
   // Create state to help manage TaskEither lifecycle
-  const [matchPeople, getPeople] = useTaskEither<Error, Array<Person>>()
+  const [matchPeople, getPeople] = useTaskEither<Error, Array<Person>>(600)
   const [person, setPerson] = React.useState<O.Option<Person>>(O.none)
 
-  React.useEffect(() =>
-    pipe(
-      makeRequest(LIST_ALL_PEOPLE_URL, peoplePayloadDecoder),
-      TE.map((r) => r.results),
-      getPeople,
-    ),
+  React.useEffect(
+    () =>
+      pipe(
+        makeRequest(LIST_ALL_PEOPLE_URL, peoplePayloadDecoder),
+        TE.map((r) => r.results),
+        getPeople,
+      ),
+    [],
   )
 
   return (
     <section>
-      {matchPeople(renderNone, renderLoading, renderLoading, (people) =>
+      {matchPeople(renderNone, renderLoading, renderError, (people) =>
         pipe(
           person,
           O.match(
             () => (
-              <PersonGrid
+              <PersonList
                 people={people}
                 selectPerson={flow(O.some, setPerson)}
               />
             ),
-            (person) => <PersonView person={person} />,
+            (person) => (
+              <PersonView
+                key={person.name}
+                person={person}
+                goBack={() => setPerson(O.none)}
+              />
+            ),
           ),
         ),
       )}
@@ -170,26 +110,50 @@ export const TaskEitherExample = ({}: TaskEitherExampleProps) => {
   )
 }
 
-type PersonGridProps = {
+type PersonListProps = {
   people: Array<Person>
   selectPerson: (person: Person) => void
 }
 
-const PersonGrid = (props: PersonGridProps) => <div></div>
+const PersonList = ({ people, selectPerson }: PersonListProps) => (
+  <section>
+    <h1>Star Wars Characters</h1>
 
-type PersonProps = {
-  readonly person: Person
+    <ul>
+      {people.map((person) => (
+        <li>
+          <PersonName
+            key={person.name}
+            person={person}
+            onClick={() => selectPerson(person)}
+          />
+        </li>
+      ))}
+    </ul>
+  </section>
+)
+
+type PersonNameProps = {
+  person: Person
+  onClick: () => void
 }
 
-type PersonData = {
-  readonly films: ReadonlyArray<Film>
-}
+/**
+ * A component just for putting a person's name in a <p> tag
+ */
+const PersonName = ({ person, onClick }: PersonNameProps) => (
+  <p onClick={onClick}>{person.name}</p>
+)
 
-const PersonView = ({ person }: PersonProps) => {
-  // Create a place to
-  const [matchData, getData] = useTaskEither<Error, PersonData>()
+/**
+ * Our view of a single person that has been selected from the list
+ */
+const PersonView = ({ person, goBack }: PersonViewProps) => {
+  // Create a place to track a person's films
+  const [matchData, getData] = useTaskEither<Error, PersonData>(600)
 
   React.useEffect(() => {
+    // Give the ability to cancel our requests
     const controller = new AbortController()
 
     pipe(
@@ -207,23 +171,107 @@ const PersonView = ({ person }: PersonProps) => {
       getData,
     )
 
+    // When person changes we will cancel the previous requests
     return () => controller.abort()
   }, [person])
 
   return (
     <section>
-      {matchData(
-        () => null,
-        renderLoading,
-        renderError,
-        ({ films }) => (
-          <ul>
-            {films.map((film) => (
-              <li>{film.title}</li>
-            ))}
-          </ul>
-        ),
-      )}
+      <div style={{ display: 'flex', alignItems: 'center' }}>
+        <button style={{ marginRight: '1rem' }} onClick={goBack}>
+          {'<-'}
+        </button>
+        <h2>{person.name}</h2>
+      </div>
+
+      {matchData(renderNone, renderLoading, renderError, ({ films }) => (
+        <ul>
+          {films.map((film) => (
+            <li key={film.episode_id}>{film.title}</li>
+          ))}
+        </ul>
+      ))}
     </section>
   )
+}
+
+type PersonViewProps = {
+  readonly person: Person
+  readonly goBack: () => void
+}
+
+type PersonData = {
+  readonly films: ReadonlyArray<Film>
+}
+
+/**
+ * Constructs a TaskEither that is capable of making a GET request that
+ * will use the provided Decoder to validate the current type. Optionally
+ * and AbortSignal can be passed along to support cancelation of the fetch request.
+ */
+export function makeRequest<A>(
+  url: string,
+  decoder: D.Decoder<unknown, A>,
+  signal?: AbortSignal,
+): TE.TaskEither<Error, A> {
+  return TE.tryCatch(
+    async () => {
+      const response = await fetch(url, { signal })
+      const result = await response.json()
+      const decoded = decoder.decode(result)
+
+      if (E.isLeft(decoded)) {
+        throw new TypeError(D.draw(decoded.left))
+      }
+
+      return decoded.right
+    },
+    (error): Error =>
+      error instanceof Error ? error : new Error(JSON.stringify(error)),
+  )
+}
+
+/**
+ * Constructs React state for managing the lifecycle of a TaskEither with
+ * the ability to pattern match over all of its states. Using the given timeToLoad
+ * we can ensure that the user is able to see the process of loading ocurring.
+ */
+export function useTaskEither<E, A>(timeToLoad: number) {
+  const [value, setValue] = React.useState<Option<Either<E, A>>>(O.none)
+  const [isLoading, setIsLoading] = React.useState<boolean>(false)
+  const run = React.useCallback((te: TE.TaskEither<E, A>) => {
+    const start = performance.now()
+
+    const task = pipe(
+      TE.fromTask<E, void>(async () => setIsLoading(true)),
+      TE.chain(() => te),
+      TE.chainFirstTaskK(() => () =>
+        new Promise((resolve) =>
+          setTimeout(resolve, timeToLoad - (performance.now() - start)),
+        ),
+      ),
+      TE.chainFirst(() => TE.fromIO(() => setIsLoading(false))),
+    )
+
+    task().then((either) => pipe(either, O.some, setValue))
+  }, [])
+
+  const match = React.useCallback(
+    <B, C, D, F>(
+      onNone: () => B,
+      onLoading: () => C,
+      onError: (error: E) => D,
+      onSuccess: (value: A) => F,
+    ) =>
+      pipe(
+        value,
+        O.matchW(
+          () => (isLoading ? onLoading() : onNone()),
+          E.matchW(onError, onSuccess),
+        ),
+      ),
+    [value, isLoading],
+  )
+
+  return [match, run] as const
 }
