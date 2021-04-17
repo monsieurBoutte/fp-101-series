@@ -7,6 +7,8 @@ import * as A from 'fp-ts/Array'
 import { flow, pipe } from 'fp-ts/function'
 import type { Task } from 'fp-ts/lib/Task'
 
+import './styles.css'
+
 const LIST_ALL_PEOPLE_URL = 'https://swapi.dev/api/people'
 const PERSON_COUNT = 10
 
@@ -36,8 +38,8 @@ export const TaskEitherExample = () => {
   )
 
   return (
-    <section style={{ display: 'flex', flexDirection: 'column', flexGrow: 1 }}>
-      <h1>Star Wars Characters</h1>
+    <section>
+      <h1>Star Wars {O.isSome(person) ? 'Films' : 'Characters'}</h1>
 
       {matchPeople(
         renderNone,
@@ -54,13 +56,7 @@ export const TaskEitherExample = () => {
 
                 return (
                   <>
-                    <section
-                      style={{
-                        display: 'flex',
-                        flexGrow: 1,
-                        alignItems: 'center',
-                      }}
-                    >
+                    <section className="PersonSection">
                       {isLoading ? (
                         renderLoading()
                       ) : (
@@ -71,28 +67,53 @@ export const TaskEitherExample = () => {
                       )}
                     </section>
 
-                    <footer
-                      style={{
-                        justifySelf: 'flex-end',
-                        flexShrink: 1,
-                        paddingBottom: '2rem',
-                      }}
-                    >
+                    <footer>
                       <p>
-                        Showing {start}-{end} of {count}
+                        Showing{' '}
+                        <span>
+                          {start}-{end}
+                        </span>{' '}
+                        of {count}
                       </p>
 
-                      <div
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                        }}
-                      >
-                        <button disabled={page === 1} onClick={back}>
-                          Back
+                      <div className="Pagination">
+                        <button
+                          type="button"
+                          className="Pagination__button Left"
+                          disabled={page === 1}
+                          onClick={back}
+                        >
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            viewBox="0 0 20 20"
+                            fill="currentColor"
+                            aria-hidden="true"
+                          >
+                            <path
+                              fill-rule="evenodd"
+                              d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z"
+                              clip-rule="evenodd"
+                            />
+                          </svg>
                         </button>
-                        <button disabled={end === count} onClick={forward}>
-                          Forward
+                        <button
+                          type="button"
+                          className="Pagination__button Forward"
+                          disabled={end === count}
+                          onClick={forward}
+                        >
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            viewBox="0 0 20 20"
+                            fill="currentColor"
+                            aria-hidden="true"
+                          >
+                            <path
+                              fill-rule="evenodd"
+                              d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z"
+                              clip-rule="evenodd"
+                            />
+                          </svg>
                         </button>
                       </div>
                     </footer>
@@ -132,9 +153,9 @@ type PersonListProps = {
  */
 const PersonList = ({ people, selectPerson }: PersonListProps) => (
   <>
-    <ul>
+    <ul className="Container">
       {people.map((person) => (
-        <li style={{ cursor: 'pointer' }}>
+        <li className="Tile" style={{ cursor: 'pointer' }}>
           <PersonName
             key={person.name}
             person={person}
@@ -181,22 +202,31 @@ const PersonView = ({ person, goBack }: PersonViewProps) => {
   }, [person])
 
   return (
-    <>
-      <div style={{ display: 'flex', alignItems: 'center' }}>
-        <button style={{ marginRight: '1rem' }} onClick={goBack}>
-          {'<-'}
-        </button>
+    <div className="FilmContent">
+      <div className="Character">
+        <svg
+          className="GoBack"
+          onClick={goBack}
+          width="24"
+          height="24"
+          viewBox="0 0 24 24"
+          fill="currentColor"
+        >
+          <path d="M12 24c6.627 0 12-5.373 12-12s-5.373-12-12-12-12 5.373-12 12 5.373 12 12 12zm-1-17v4h8v2h-8v4l-6-5 6-5z" />
+        </svg>
         <h2>{person.name}</h2>
       </div>
 
       {matchFilms(renderNone, renderLoading, renderError, (films) => (
-        <ul>
+        <ul className="Container">
           {films.map((film) => (
-            <li key={film.episode_id}>{film.title}</li>
+            <li className="Tile" key={film.episode_id}>
+              {film.title}
+            </li>
           ))}
         </ul>
       ))}
-    </>
+    </div>
   )
 }
 
@@ -290,7 +320,7 @@ function useTaskEither<E, A>(timeToLoad: number) {
 const delay = (ms: number): Task<void> => () =>
   new Promise((resolve) => setTimeout(resolve, ms))
 
-const filmDecoder = D.struct({
+const filmDecoder = D.type({
   title: D.string,
   episode_id: D.number,
   url: D.string,
@@ -298,14 +328,14 @@ const filmDecoder = D.struct({
 
 type Film = D.TypeOf<typeof filmDecoder>
 
-const peopleDecoder = D.struct({
+const peopleDecoder = D.type({
   name: D.string,
   films: D.array(D.string),
 })
 
 type Person = D.TypeOf<typeof peopleDecoder>
 
-const peoplePayloadDecoder = D.struct({
+const peoplePayloadDecoder = D.type({
   count: D.number,
   results: pipe(
     D.array(peopleDecoder),
