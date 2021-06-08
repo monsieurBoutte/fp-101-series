@@ -1,6 +1,5 @@
 import React from 'react'
 import { pipe, identity } from 'fp-ts/function'
-import { pipeable } from 'fp-ts/pipeable'
 import * as R from 'fp-ts/Reader'
 
 interface UserConfig {
@@ -9,8 +8,8 @@ interface UserConfig {
 }
 
 export const ProfunctorExample = () => {
-  //promap: <E, A, D, B>(f: (d: D) => E, g: (a: A) => B) => (fea: R.Reader<E, A>) => R.Reader<D, B>
-  const { promap } = pipeable(R.Profunctor)
+  // promap: <E, A, D, B>(f: (d: D) => E, g: (a: A) => B) => (fea: R.Reader<E, A>) => R.Reader<D, B>
+  const promap = R.promap
 
   const foo: UserConfig = {
     handle: '@hello',
