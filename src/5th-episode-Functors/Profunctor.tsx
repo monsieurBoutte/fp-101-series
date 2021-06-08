@@ -3,25 +3,35 @@ import { pipe, identity } from 'fp-ts/function'
 import { pipeable } from 'fp-ts/pipeable'
 import * as R from 'fp-ts/Reader'
 
+interface UserConfig {
+  handle: string
+  email: string
+}
+
 export const ProfunctorExample = () => {
-  //promap: <E, A, D, B>(f: (d: D) => E, g: (a: A) => B) => (fbc: R.Reader<E, A>) => R.Reader<D, B>
+  //promap: <E, A, D, B>(f: (d: D) => E, g: (a: A) => B) => (fea: R.Reader<E, A>) => R.Reader<D, B>
   const { promap } = pipeable(R.Profunctor)
 
-  const handle = '@hello'
+  const foo: UserConfig = {
+    handle: '@hello',
+    email: 'foo@example.com',
+  }
 
-  const isLongEnough = (name: string) =>
+  const isHandleLongEnough = (config: UserConfig) =>
     pipe(
-      name,
+      config,
       promap(
         // f: (d: D) => E
-        (s: string) => s + 'friend',
+        (c: UserConfig) => ({ ...c, handle: c.handle + 'friend' }),
         // g: (a: A) => B
         (n: number) => n >= 12,
-        // => (fbc: R.Reader<E, A>)
-      )((s: string) => s.length),
+        // => (fea: R.Reader<E, A>)
+      )((c: UserConfig) => c.handle.length),
       // => R.Reader<D, B>
       identity,
     )
 
-  return <h3>is handle long enough? {isLongEnough(handle) ? 'yes' : 'no'}</h3>
+  return (
+    <h3>is handle long enough? {isHandleLongEnough(foo) ? 'yes' : 'no'}</h3>
+  )
 }
