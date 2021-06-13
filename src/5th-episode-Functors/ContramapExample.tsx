@@ -40,11 +40,23 @@ export const ContramapExample = () => {
   return (
     <div>
       <h3>unsorted profiles</h3>
-      <pre style={{ textAlign: 'left', backgroundColor: '#e6e3e3' }}>
+      <pre
+        style={{
+          textAlign: 'left',
+          backgroundColor: '#f99898',
+          color: '#990606',
+        }}
+      >
         {JSON.stringify(userProfiles, null, 2)}
       </pre>
       <h3>sorted profiles</h3>
-      <pre style={{ textAlign: 'left', backgroundColor: '#c5dbf7' }}>
+      <pre
+        style={{
+          textAlign: 'left',
+          backgroundColor: '#c5f7cd',
+          color: '#095d09',
+        }}
+      >
         {JSON.stringify(sortedProfilesByDateCreated(userProfiles), null, 2)}
       </pre>
     </div>

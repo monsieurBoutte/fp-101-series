@@ -11,6 +11,7 @@ export const FunctorExample = () => {
       <h1>Hello friend</h1>
       <MapExample />
       <BimapExample />
+      <ContramapExample />
       <ProfunctorExample />
     </div>
   )
